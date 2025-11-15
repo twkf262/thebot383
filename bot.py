@@ -86,64 +86,55 @@ cursor.close()
 conn.close()"""
 
 import os
-import requests
+import logging
 from flask import Flask, request
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
+# Set up logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Replace with your bot token
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+
+# Create Flask app
 app = Flask(__name__)
 
-@app.route('/')
-def hello():
-    print("print hello")
-    return "Hello, World!"
+# Create the Application instance
+application = Application.builder().token(TOKEN).build()
 
-# Replace with your actual bot token from BotFather
-BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-# Telegram API URL
-TELEGRAM_API_URL = f'https://api.telegram.org/bot{BOT_TOKEN}'
+# Command handler for /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Hello! I'm your Telegram bot. Send me any text and I'll echo it back!")
 
-# Replace with your Render app's URL (e.g., https://your-app.onrender.com)
-webhook_url_suffix = '/webhook'
-WEBHOOK_URL = os.getenv('WEBSERVICE_URL') + webhook_url_suffix
+# Echo handler function
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Echo the message back to the user
+    await update.message.reply_text(update.message.text)
 
-# Set webhook on Telegram server (run this once)
-def set_webhook():
-    webhook_set_url = f'{TELEGRAM_API_URL}/setWebhook?url={WEBHOOK_URL}'
-    response = requests.get(webhook_set_url)
-    print(f'Webhook set status: {response.json()}')
-
-# Function to echo received messages
-def echo_message(chat_id, text):
-    url = f'{TELEGRAM_API_URL}/sendMessage'
-    data = {
-        'chat_id': chat_id,
-        'text': text
-    }
-    response = requests.post(url, data=data)
-    print(f'Sent message to {chat_id}: {text} - Status: {response.status_code}')
-
-# Webhook endpoint for receiving updates
+# Set up Flask route to handle incoming webhook requests
 @app.route('/webhook', methods=['POST'])
-def webhook():
-    update = request.json
-    print(update)  # Print the incoming update for debugging
+async def webhook():
+    json_str = request.get_data().decode('UTF-8')
+    update = Update.de_json(json_str, application.bot)
+    await application.process_update(update)
+    return '', 200
 
-    # Extract message details
-    message = update.get('message')
-    if message:
-        chat_id = message['chat']['id']
-        text = message.get('text')
-
-        # Echo back the same message
-        if text:
-            echo_message(chat_id, text)
-
-    return 'OK', 200
+# Set webhook URL for Telegram
+async def set_webhook():
+    webhook_url = 'https://thebot383.onrender.com/webhook'  # Change this to your deployed app URL
+    await application.bot.set_webhook(webhook_url)
 
 if __name__ == '__main__':
-    print("main")
-    # Uncomment the following line to set webhook when the app starts
-    set_webhook()
+    # Register command handlers and message handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))  # Echo all text messages
 
-    # Run the Flask app on Render
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+    # Set webhook when the bot starts
+    import asyncio
+    asyncio.run(set_webhook())
+
+    # Start Flask server
+    app.run(debug=True, host='0.0.0.0', port=5000)
 
