@@ -1,6 +1,6 @@
 from flask import Flask, request
 from telegram import Bot
-from telegram.ext import CommandHandler, Updater
+from telegram.ext import CommandHandler, Updater, Dispatcher, Update, MessageHandler, Filters
 
 import psycopg2
 import os
@@ -13,16 +13,35 @@ app = Flask(__name__)
 #def hello():
 #    return "Hello, World!"
 
+# Create a dispatcher for handling Telegram updates
+def start(update, context):
+    update.message.reply_text("Hello! Send me a message and I'll echo it.")
+
+def echo(update, context):
+    """Echoes the message received from the user."""
+    message_text = update.message.text  # Extract the message text
+    update.message.reply_text(message_text)  # Send the same text back to the user
+
+# Set up the dispatcher with handlers
+dispatcher = Dispatcher(bot, None, workers=0)
+
+# Add handlers for the '/start' command and all text messages
+dispatcher.add_handler(CommandHandler('start', start))
+dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
+
 webhook_url_suffix = '/webhook'
 @app.route(webhook_url_suffix, methods=['POST'])
 def webhook():
     json_str = request.get_data(as_text=True)
     update = Update.de_json(json_str, bot)
     # Handle the update (e.g., respond to the bot message)
+    dispatcher.process_update(update)
+    
     return 'OK'
 
 if __name__ == '__main__':
     app.run(debug=True)
+#    app.run(debug=True, host='0.0.0.0', port=5000)
 
 # Replace with your bot's token
 bot = telegram.Bot(token=os.getenv('TELEGRAM_BOT_TOKEN'))
