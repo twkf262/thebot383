@@ -60,6 +60,7 @@ def send_message(chat_id, text):
         print("Failed to send message.", response.text)
 
 if __name__ == '__main__':
+    set_webhook()
     app.run(debug=True)
 #    app.run(debug=True, host='0.0.0.0', port=5000)
 
