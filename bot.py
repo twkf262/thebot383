@@ -2,7 +2,7 @@ from flask import Flask, request
 #from telegram import Bot
 #from telegram.ext import CommandHandler, Updater, Dispatcher, Update, MessageHandler, Filters
 
-import psycopg2, os, telegram, json, requests
+import psycopg2, os, telegram, json
 
 app = Flask(__name__)
 
