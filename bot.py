@@ -1,4 +1,4 @@
-from flask import Flask, request
+"""from flask import Flask, request
 #from telegram import Bot
 #from telegram.ext import CommandHandler, Updater, Dispatcher, Update, MessageHandler, Filters
 
@@ -83,4 +83,61 @@ conn.commit()
 
 # Close the connection
 cursor.close()
-conn.close()
+conn.close()"""
+
+import os
+import requests
+from flask import Flask, request
+
+app = Flask(__name__)
+
+# Replace with your actual bot token from BotFather
+BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+# Telegram API URL
+TELEGRAM_API_URL = f'https://api.telegram.org/bot{BOT_TOKEN}'
+
+# Replace with your Render app's URL (e.g., https://your-app.onrender.com)
+webhook_url_suffix = '/webhook'
+WEBHOOK_URL = os.getenv('WEBSERVICE_URL') + webhook_url_suffix
+
+# Set webhook on Telegram server (run this once)
+def set_webhook():
+    webhook_set_url = f'{TELEGRAM_API_URL}/setWebhook?url={WEBHOOK_URL}'
+    response = requests.get(webhook_set_url)
+    print(f'Webhook set status: {response.json()}')
+
+# Function to echo received messages
+def echo_message(chat_id, text):
+    url = f'{TELEGRAM_API_URL}/sendMessage'
+    data = {
+        'chat_id': chat_id,
+        'text': text
+    }
+    response = requests.post(url, data=data)
+    print(f'Sent message to {chat_id}: {text} - Status: {response.status_code}')
+
+# Webhook endpoint for receiving updates
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    update = request.json
+    print(update)  # Print the incoming update for debugging
+
+    # Extract message details
+    message = update.get('message')
+    if message:
+        chat_id = message['chat']['id']
+        text = message.get('text')
+
+        # Echo back the same message
+        if text:
+            echo_message(chat_id, text)
+
+    return 'OK', 200
+
+if __name__ == '__main__':
+    # Uncomment the following line to set webhook when the app starts
+    # set_webhook()
+
+    # Run the Flask app on Render
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+
