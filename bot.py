@@ -19,7 +19,7 @@ telegram_bot_api_url = os.getenv('TELEGRAM_API_URL') + '/bot' + os.getenv('TELEG
 app = Flask(__name__)
 
 # Set webhook with Telegram
-def set_telegram_webhook():
+def set_webhook():
     response = requests.post(telegram_bot_api_url + '/setWebhook', data={'url': webhook_url})
     if response.status_code == 200:
         print("Webhook successfully set.")
@@ -60,6 +60,7 @@ def send_message(chat_id, text):
         print("Failed to send message.", response.text)
 
 if __name__ == '__main__':
+    print("Main func")
     set_webhook()
     app.run(debug=True)
 #    app.run(debug=True, host='0.0.0.0', port=5000)
