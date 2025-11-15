@@ -98,10 +98,11 @@ logger = logging.getLogger(__name__)
 # Replace with your bot token
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
+
 # Create Flask app
 app = Flask(__name__)
 
-# Create the Application instance
+# Create the Application instance for handling Telegram updates
 application = Application.builder().token(TOKEN).build()
 
 # Command handler for /start
@@ -126,15 +127,13 @@ async def set_webhook():
     webhook_url = 'https://thebot383.onrender.com/webhook'  # Change this to your deployed app URL
     await application.bot.set_webhook(webhook_url)
 
-if __name__ == '__main__':
-    # Register command handlers and message handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))  # Echo all text messages
+# Register command handlers and message handlers
+application.add_handler(CommandHandler("start", start))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))  # Echo all text messages
 
+if __name__ == '__main__':
     # Set webhook when the bot starts
     import asyncio
     asyncio.run(set_webhook())
 
-    # Start Flask server
-    app.run(debug=True, host='0.0.0.0', port=5000)
-
+    # Gunicorn will handle serving the Flask app, no need for app.run() here
