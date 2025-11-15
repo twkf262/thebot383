@@ -13,8 +13,8 @@ app = Flask(__name__)
 
 webhook_url_suffix = '/webhook'
 webhook_url = os.getenv('WEBSERVICE_URL') + webhook_url_suffix
-@app.route(webhook_url_suffix, methods=['POST'])
 
+webhook_url = os.getenv('WEBSERVICE_URL') + webhook_url_suffix
 #telegram_bot_api_url = os.getenv('TELEGRAM_API_URL') + '/bot' + os.getenv('TELEGRAM_BOT_TOKEN')
 #webhook_url = os.getenv('WEBSERVICE_URL') + webhook_url_suffix
 #telegram_bot_api_url = os.getenv('TELEGRAM_API_URL') + webhook_url_suffix
@@ -34,6 +34,7 @@ def set_telegram_webhook():
     else:
         print("Failed to set webhook.", response.text)
 
+@app.route(webhook_url_suffix, methods=['POST'])
 def webhook():
     json_str = request.get_data(as_text=True)
     update = Update.de_json(json_str, bot)
