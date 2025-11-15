@@ -31,8 +31,33 @@ def webhook():
     json_str = request.get_data(as_text=True)
     update = Update.de_json(json_str, bot)
     # Handle the update (e.g., respond to the bot message)
-    
-    return 'OK'
+
+    print(update)  # Log the incoming update for debugging
+
+    # Get message details
+    message = update.get('message')
+    if message:
+        chat_id = message['chat']['id']
+        text = message.get('text')
+
+        # If a message exists, echo it back
+        if text:
+            send_message(chat_id, text)
+
+    return 'OK', 200
+
+def send_message(chat_id, text):
+    #Send a message back to the user.
+    url = telegram_bot_api_url + '/sendMessage'
+    payload = {
+        'chat_id': chat_id,
+        'text': text
+    }
+    response = requests.post(url, data=payload)
+    if response.status_code == 200:
+        print("Message sent successfully.")
+    else:
+        print("Failed to send message.", response.text)
 
 if __name__ == '__main__':
     app.run(debug=True)
