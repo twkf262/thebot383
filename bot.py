@@ -14,15 +14,7 @@ app = Flask(__name__)
 webhook_url_suffix = '/webhook'
 webhook_url = os.getenv('WEBSERVICE_URL') + webhook_url_suffix
 
-webhook_url = os.getenv('WEBSERVICE_URL') + webhook_url_suffix
-#telegram_bot_api_url = os.getenv('TELEGRAM_API_URL') + '/bot' + os.getenv('TELEGRAM_BOT_TOKEN')
-#webhook_url = os.getenv('WEBSERVICE_URL') + webhook_url_suffix
-#telegram_bot_api_url = os.getenv('TELEGRAM_API_URL') + webhook_url_suffix
-#webhook_url = os.getenv('WEBSERVICE_URL')
-#telegram_bot_api_url = os.getenv('TELEGRAM_API_URL')
-#telegram_bot_api_url = telegram_bot_api_url + '/bot'
-#telegram_bot_api_url = telegram_bot_api_url + os.getenv('TELEGRAM_BOT_TOKEN')
-
+telegram_bot_api_url = os.getenv('TELEGRAM_API_URL') + '/bot' + os.getenv('TELEGRAM_BOT_TOKEN')
 
 app = Flask(__name__)
 
