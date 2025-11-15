@@ -37,7 +37,7 @@ conn = psycopg2.connect(os.getenv('DATABASE_URL'))
 cursor = conn.cursor()
 
 # Example: Insert data into the database
-cursor.execute("INSERT INTO users (user_id, username) VALUES (%s, %s)", (user_id, username))
+#cursor.execute("INSERT INTO users (user_id, username) VALUES (%s, %s)", (user_id, username))
 conn.commit()
 
 # Close the connection
