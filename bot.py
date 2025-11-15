@@ -95,7 +95,7 @@ app = Flask(__name__)
 def hello():
     print("print hello")
     return "Hello, World!"
-"""
+
 # Replace with your actual bot token from BotFather
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 # Telegram API URL
@@ -140,9 +140,10 @@ def webhook():
     return 'OK', 200
 
 if __name__ == '__main__':
+    print("main")
     # Uncomment the following line to set webhook when the app starts
     set_webhook()
 
     # Run the Flask app on Render
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
-"""
+
