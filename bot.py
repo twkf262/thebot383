@@ -91,6 +91,11 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
+@app.route('/')
+def hello():
+    print("print hello")
+    return "Hello, World!"
+"""
 # Replace with your actual bot token from BotFather
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 # Telegram API URL
@@ -140,4 +145,4 @@ if __name__ == '__main__':
 
     # Run the Flask app on Render
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
-
+"""
