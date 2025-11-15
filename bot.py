@@ -18,7 +18,7 @@ def start(update, context):
     update.message.reply_text("Hello! Send me a message and I'll echo it.")
 
 def echo(update, context):
-    """Echoes the message received from the user."""
+# Echoes the message received from the user.
     message_text = update.message.text  # Extract the message text
     update.message.reply_text(message_text)  # Send the same text back to the user
 
