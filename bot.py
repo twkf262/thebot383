@@ -96,8 +96,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 # Replace with your bot token
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-
+TOKEN = '8510965294:AAHI9aKl2ik_l6BM2rVD61UR26xLgrqz8DY'
 
 # Create Flask app
 app = Flask(__name__)
