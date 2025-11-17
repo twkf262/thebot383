@@ -1,7 +1,6 @@
+import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-import os
-import python-telegram-bot
 
 # This function will be called when the user sends /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
