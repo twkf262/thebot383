@@ -12,6 +12,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import select
 from sqlalchemy import DateTime
 from sqlalchemy.sql import func
+from datetime import datetime
 
 from db import init_db, get_user_by_tg_id, upsert_user
 
@@ -165,6 +166,39 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("No profile found. Run /chat to create one.")
 
 telegram_app.add_handler(CommandHandler("profile", profile))
+
+# ----- Report Input Handler ----- #
+
+ASK_LOCATION = 0
+
+async def report_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Please send me the location as an attachment or by forwarding. Only send it using the built-in location (maps) tool. Don't send me typed coordinates or What3Words.")
+    return ASK_LOCATION
+
+async def get_location(uprate: Update, context: ContextTypes.DEFAULT_TYPE):
+    tg_id = str(update.effective_user.id)
+    tg_dt = datetime.utcfromtimestamp(update.message.date.timestamp())
+    name = context.user_data.get("name")
+    age = int(update.message.text)
+
+    await upsert_user(tg_id, tg_dt, latitude, longitude, )
+
+    await update.message.reply_text(f"Rave at coordinates: {latitude} N, {longitude} W reported.")
+    return ConversationHandler.END
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Report cancelled.")
+    return ConversationHandler.END
+
+report_handler = ConversationHandler(
+    entry_points=[CommandHandler("report", report_start)],
+    states={
+        ASK_LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_location)],
+    },
+    fallbacks=[CommandHandler("cancel", cancel)],
+)
+
+telegram_app.add_handler(report_handler)
 
 # ----- FastAPI Lifecycle Events ----- #
 
