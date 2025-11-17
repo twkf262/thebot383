@@ -1,59 +1,48 @@
 import os
 from fastapi import FastAPI, Request
-from telegram import Update, Bot
-from telegram.error import TelegramError
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
+from fastapi.responses import JSONResponse
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Read environment variables (set these in Render)
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-WEBHOOK_URL = os.environ.get("WEBSERVICE_URL")  # e.g., https://your-app.onrender.com/webhook
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+WEBHOOK_URL = os.getenv("WEBSERVICE_URL")
 
-if not TELEGRAM_TOKEN or not WEBHOOK_URL:
-    raise ValueError("TELEGRAM_BOT_TOKEN and WEBSERVICE_URL must be set as environment variables.")
-
-# Create bot instance
-bot = Bot(token=TELEGRAM_TOKEN)
-
-# Initialize FastAPI
+# Setup FastAPI
 app = FastAPI()
 
-# Telegram handlers using python-telegram-bot
+# Setup Telegram Application
+telegram_app = Application.builder().token(BOT_TOKEN).build()
+
+
+# ---- Telegram Handler ---- #
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("hello")  # <-- Respond with "hello"
+    await update.message.reply_text("Hello world! 🎉")
 
-# Initialize the bot application
-application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-application.add_handler(CommandHandler("start", start))
 
-# Route for Telegram webhook
+telegram_app.add_handler(CommandHandler("start", start))
+
+
+# ---- FastAPI Routes ---- #
+
+@app.on_event("startup")
+async def startup():
+    """Set webhook once app starts"""
+    await telegram_app.bot.set_webhook(url=f"{WEBHOOK_URL}/webhook")
+    print("Webhook set!")
+
+
 @app.post("/webhook")
-async def telegram_webhook(request: Request):
-    """Receive updates from Telegram and process them."""
-    try:
-        data = await request.json()
-        update = Update.de_json(data, bot)
-        await application.update_queue.put(update)
-    except TelegramError as e:
-        print(f"Telegram error: {e}")
-    return {"ok": True}
+async def webhook(request: Request):
+    """Main webhook receiver"""
+    data = await request.json()
+    update = Update.de_json(data, telegram_app.bot)
+    await telegram_app.process_update(update)
+    return JSONResponse({"status": "ok"})
 
-# Optional: Root endpoint
+
 @app.get("/")
 async def root():
-    return {"message": "Telegram bot is running."}
-
-# Set the webhook when the app starts
-@app.on_event("startup")
-async def set_webhook():
-    await bot.delete_webhook()
-    await bot.set_webhook(WEBHOOK_URL)
-    print(f"Webhook set to {WEBHOOK_URL}")
-
-# Optional: Delete webhook on shutdown
-@app.on_event("shutdown")
-async def shutdown():
-    await bot.delete_webhook()
-    print("Webhook removed.")
+    return {"message": "Telegram bot is running!"}
 
 
 """
