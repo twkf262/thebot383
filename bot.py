@@ -1,4 +1,63 @@
 import os
+from fastapi import FastAPI, Request
+from telegram import Update, Bot
+from telegram.error import TelegramError
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
+
+# Read environment variables (set these in Render)
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+WEBHOOK_URL = os.environ.get("WEBSERVICE_URL")  # e.g., https://your-app.onrender.com/webhook
+
+if not TELEGRAM_TOKEN or not WEBHOOK_URL:
+    raise ValueError("TELEGRAM_BOT_TOKEN and WEBSERVICE_URL must be set as environment variables.")
+
+# Create bot instance
+bot = Bot(token=TELEGRAM_TOKEN)
+
+# Initialize FastAPI
+app = FastAPI()
+
+# Telegram handlers using python-telegram-bot
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("hello")  # <-- Respond with "hello"
+
+# Initialize the bot application
+application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+application.add_handler(CommandHandler("start", start))
+
+# Route for Telegram webhook
+@app.post("/webhook")
+async def telegram_webhook(request: Request):
+    """Receive updates from Telegram and process them."""
+    try:
+        data = await request.json()
+        update = Update.de_json(data, bot)
+        await application.update_queue.put(update)
+    except TelegramError as e:
+        print(f"Telegram error: {e}")
+    return {"ok": True}
+
+# Optional: Root endpoint
+@app.get("/")
+async def root():
+    return {"message": "Telegram bot is running."}
+
+# Set the webhook when the app starts
+@app.on_event("startup")
+async def set_webhook():
+    await bot.delete_webhook()
+    await bot.set_webhook(WEBHOOK_URL)
+    print(f"Webhook set to {WEBHOOK_URL}")
+
+# Optional: Delete webhook on shutdown
+@app.on_event("shutdown")
+async def shutdown():
+    await bot.delete_webhook()
+    print("Webhook removed.")
+
+
+"""
+import os
 import asyncio
 from fastapi import FastAPI, Request
 from telegram import Update
@@ -51,7 +110,7 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
-
+"""
 
 """from flask import Flask, request
 #from telegram import Bot
