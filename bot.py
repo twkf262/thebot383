@@ -1,42 +1,37 @@
 import os
-from fastapi import FastAPI, Request
+from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 WEBHOOK_URL = os.getenv('WEBSERVICE_URL') + '/webhook'   # <-- change this
 
-app = FastAPI()
+app = Flask(__name__)
 
-# Telegram bot application
 bot_app = Application.builder().token(TOKEN).build()
 
-# Command handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hello, World!")
 
 bot_app.add_handler(CommandHandler("start", start))
 
 
-# Set webhook when server starts
-@app.on_event("startup")
-async def startup():
-    await bot_app.bot.set_webhook(url=WEBHOOK_URL)
-
-
-# Telegram will POST updates here
 @app.post("/webhook")
-async def telegram_webhook(request: Request):
-    data = await request.json()
-    await bot_app.update_queue.put(Update.de_json(data, bot_app.bot))
-    return {"ok": True}
+def webhook():
+    data = request.get_json()
+    update = Update.de_json(data, bot_app.bot)
+    bot_app.update_queue.put_nowait(update)
+    return "OK", 200
 
 
-# Start the update processing worker
-@app.on_event("startup")
-async def start_bot():
+@app.before_first_request
+def setup_webhook():
+    bot_app.bot.set_webhook(url=WEBHOOK_URL)
+
+
+if __name__ == "__main__":
     bot_app.create_task(bot_app.start())
-
+    app.run(host="0.0.0.0", port=8443)
 
 
 """from flask import Flask, request
