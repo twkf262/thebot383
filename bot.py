@@ -1,12 +1,27 @@
-# This is the old 'hello world' code
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-import psycopg2, os, telegram, json, requests
+# This function will be called when the user sends /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Hello, World! 👋")
 
-app = Flask(__name__)
+async def main():
+    # Replace with your bot token
+    BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
 
-@app.route('/')
-def hello():
-    return "Hello, World!"
+    # Create the application
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    # Add a command handler
+    app.add_handler(CommandHandler("start", start))
+
+    # Start the bot (polling)
+    await app.run_polling()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+
 
 """from flask import Flask, request
 #from telegram import Bot
