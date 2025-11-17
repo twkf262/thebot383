@@ -10,6 +10,8 @@ from sqlalchemy import Column, Integer, String
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import select
+from sqlalchemy import DateTime
+from sqlalchemy.sql import func
 
 from db import init_db, get_user_by_tg_id, upsert_user
 
@@ -25,6 +27,64 @@ class User(Base):
     telegram_id = Column(String, unique=True)
     name = Column(String)
     age = Column(Integer)
+# for tracking whether they have used up all their reporting opportunities for a session
+    lastSubmittedTime = Column(DateTime(timezone=False))
+# ditto (session foreign key)
+# I don't think we need to index this?
+    lastReportedSession = Column(Integer)
+# persistent score based on the aggregate score of previous submissions
+    score = Column(Float)
+
+# a single report from a user
+class reportedLocation(Base)
+    __tablename__ = "reported_locations"
+    id = Column(Integer, primary_key=True)
+# user foreign key
+# TODO: column to be indexed so we can get all reports by a user
+    submittedBy = (Integer) # primary key from users table
+    submittedTime = Column(DateTime(timezone=False))
+# Calculated from number of subsequent reports.
+# This is just for user score generation,
+# later reports dont get confidence increased as much as early ones
+# even though logically they should be the same.
+# Perhaps 'confidence' is a misnomer and 'score' would be better
+# (although comfusable with user's aggregate score)?
+    confidence = Column(Float)
+    latitude = Column (Float)
+    longitude = Column (Float)
+# session foreign key
+# TODO: column to be indexed so we can get all reports in the session
+    session = Column(Integer)
+
+# suspected location calculated from a set of reports
+# may not be needed if we're just giving users 'heat maps'
+class suspectedLocation(Base)
+    __tablename__ = "suspected_locations"
+    confidence = Column(Float)
+    latitude = Column (Float)
+    longitude = Column (Float)
+
+# the session (interval of time) through which a set of reports is considered 'live'
+class reportSession(Base)
+    __tablename__ = "report_sessions"
+    id = Column(Integer, primary_key=True)
+    startTime = Column(DateTime(timezone=False))
+    endTime = Column(DateTime(timezone=False))
+
+# Known previous locations. For now we are just counting confirmed locations.
+# Even if an event had very high confidence from user reports,
+# we would only record if checked somehow
+# (e.g. be there, phone the line, social media, photos or videos etc).
+# Data entry via e.g. a text file (extract from Smash somehow)?
+# In later versions maybe we could start integrating user reports.
+class historicLocation
+    __tablename__ = "historic_locations"
+    id = Column(Integer, primary_key=True)
+    latitude = Column (Float)
+    longitude = Column (Float)
+# Known historical locations with no knowledge of specific events
+# will typically be given a numberOfPrevious of 1.
+    numberOfPrevious = Column (Integer)
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBSERVICE_URL")
