@@ -2,26 +2,19 @@ import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# This function will be called when the user sends /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hello, World! 👋")
 
-async def main():
-    # Replace with your bot token
+def main():
     BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
-    # Create the application
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    # Add a command handler
     app.add_handler(CommandHandler("start", start))
 
-    # Start the bot (polling)
-    await app.run_polling()
+    app.run_polling()      # <-- This starts and manages the event loop internally
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()
 
 
 """from flask import Flask, request
