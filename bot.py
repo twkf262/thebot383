@@ -9,6 +9,7 @@ from telegram.ext import ConversationHandler, MessageHandler, filters
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import select
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -104,14 +105,21 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     async with async_session() as session:
         result = await session.execute(
-            sqlalchemy.select(User).where(User.telegram_id == tg_id)
+            select(User).where(User.telegram_id == tg_id)
         )
-        user = result.scalars().first()
+        user = result.scalar_one_or_none()
 
     if user:
-        await update.message.reply_text(f"Your profile:\nName: {user.name}\nAge: {user.age}")
+        await update.message.reply_text(
+            f"Your profile:\n\n"
+            f"👤 Name: {user.name}\n"
+            f"🎂 Age: {user.age}\n"
+        )
     else:
-        await update.message.reply_text("No profile found. Use /chat to create one.")
+        await update.message.reply_text(
+            "You don't have a saved profile yet.\n"
+            "Start with /chat to create one 😊"
+        )
 
 telegram_app.add_handler(CommandHandler("profile", profile))
 
