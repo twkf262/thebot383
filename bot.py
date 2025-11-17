@@ -34,6 +34,11 @@ async def on_startup():
     await telegram_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     print("Webhook registered!")
 
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = " ".join(context.args) if context.args else "(no text)"
+    await update.message.reply_text(f"Echo: {text}")
+
+telegram_app.add_handler(CommandHandler("echo", echo))
 
 @app.on_event("shutdown")
 async def on_shutdown():
