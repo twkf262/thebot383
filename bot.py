@@ -2,20 +2,26 @@ import os
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+import asyncio
 
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 WEBHOOK_URL = os.getenv('WEBSERVICE_URL') + '/webhook'   # <-- change this
 
 app = Flask(__name__)
 
+# Create the PTB application
 bot_app = Application.builder().token(TOKEN).build()
 
+
+# --- Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hello, World!")
+
 
 bot_app.add_handler(CommandHandler("start", start))
 
 
+# --- Webhook endpoint ---
 @app.post("/webhook")
 def webhook():
     data = request.get_json()
@@ -24,14 +30,27 @@ def webhook():
     return "OK", 200
 
 
-@app.before_first_request
-def setup_webhook():
-    bot_app.bot.set_webhook(url=WEBHOOK_URL)
+# --- Startup logic for Flask 3 ---
+@app.before_serving
+async def setup():
+    # Start the PTB update handling loop
+    asyncio.create_task(bot_app.start())
+
+    # Register webhook
+    await bot_app.bot.set_webhook(WEBHOOK_URL)
 
 
+# --- Shutdown logic ---
+@app.after_serving
+async def shutdown():
+    await bot_app.shutdown()
+    await bot_app.bot.session.close()
+
+
+# --- Entry point ---
 if __name__ == "__main__":
-    bot_app.create_task(bot_app.start())
     app.run(host="0.0.0.0", port=8443)
+
 
 
 """from flask import Flask, request
