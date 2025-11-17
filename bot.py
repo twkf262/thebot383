@@ -6,6 +6,32 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from telegram.ext import ConversationHandler, MessageHandler, filters
 
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+WEBHOOK_URL = os.getenv("WEBSERVICE_URL")
+
+# FastAPI app
+app = FastAPI()
+
+# Telegram bot application
+telegram_app = Application.builder().token(BOT_TOKEN).build()
+
+# ----- Telegram Start Command Handler ----- #
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Hello world! 🎉")
+
+telegram_app.add_handler(CommandHandler("start", start))
+
+# ----- Echo Command ----- #
+
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = " ".join(context.args) if context.args else "(no text)"
+    await update.message.reply_text(f"Echo: {text}")
+
+telegram_app.add_handler(CommandHandler("echo", echo))
+
+# ----- Telegram Conversation Handler ----- #
+
 # Conversation states
 ASK_NAME, ASK_AGE = range(2)
 
@@ -38,24 +64,6 @@ conv_handler = ConversationHandler(
 )
 
 telegram_app.add_handler(conv_handler)
-
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-WEBHOOK_URL = os.getenv("WEBSERVICE_URL")
-
-# FastAPI app
-app = FastAPI()
-
-# Telegram bot application
-telegram_app = Application.builder().token(BOT_TOKEN).build()
-
-
-# ----- Telegram Command Handler ----- #
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hello world! 🎉")
-
-
-telegram_app.add_handler(CommandHandler("start", start))
-
 
 # ----- FastAPI Lifecycle Events ----- #
 
