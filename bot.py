@@ -6,6 +6,23 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 from telegram.ext import ConversationHandler, MessageHandler, filters
 
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+engine = create_async_engine(DATABASE_URL, echo=False, future=True)
+Base = declarative_base()
+async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(String, unique=True)
+    name = Column(String)
+    age = Column(Integer)
+
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBSERVICE_URL")
 
@@ -47,7 +64,22 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = context.user_data.get("name")
     age = update.message.text
-    await update.message.reply_text(f"Great! So your name is {name} and you're {age} years old. 😊")
+    tg_id = str(update.effective_user.id)
+
+    # Save to DB
+    async with async_session() as session:
+        user = await session.get(User, {"telegram_id": tg_id})
+
+        if not user:
+            user = User(telegram_id=tg_id, name=name, age=int(age))
+            session.add(user)
+        else:
+            user.name = name
+            user.age = int(age)
+
+        await session.commit()
+
+    await update.message.reply_text(f"Saved! You are {name}, {age} years old 😊")
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -65,10 +97,33 @@ conv_handler = ConversationHandler(
 
 telegram_app.add_handler(conv_handler)
 
+# ----- Profile Command ----- #
+
+async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    tg_id = str(update.effective_user.id)
+
+    async with async_session() as session:
+        result = await session.execute(
+            sqlalchemy.select(User).where(User.telegram_id == tg_id)
+        )
+        user = result.scalars().first()
+
+    if user:
+        await update.message.reply_text(f"Your profile:\nName: {user.name}\nAge: {user.age}")
+    else:
+        await update.message.reply_text("No profile found. Use /chat to create one.")
+
+telegram_app.add_handler(CommandHandler("profile", profile))
+
 # ----- FastAPI Lifecycle Events ----- #
 
 @app.on_event("startup")
 async def on_startup():
+    # Create tables if missing
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("DB initialized!")
+    
     # Must initialize and start application for webhook usage
     await telegram_app.initialize()
     await telegram_app.start()
