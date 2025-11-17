@@ -1,4 +1,9 @@
 # This is the old 'hello world' code
+
+import psycopg2, os, telegram, json, requests
+
+app = Flask(__name__)
+
 @app.route('/')
 def hello():
     return "Hello, World!"
