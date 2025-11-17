@@ -1,5 +1,6 @@
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import os
 
 # This function will be called when the user sends /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -7,7 +8,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def main():
     # Replace with your bot token
-    BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+    BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
     # Create the application
     app = ApplicationBuilder().token(BOT_TOKEN).build()
