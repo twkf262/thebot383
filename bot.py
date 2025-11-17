@@ -1,3 +1,8 @@
+# This is the old 'hello world' code
+@app.route('/')
+def hello():
+    return "Hello, World!"
+
 """from flask import Flask, request
 #from telegram import Bot
 #from telegram.ext import CommandHandler, Updater, Dispatcher, Update, MessageHandler, Filters
@@ -84,7 +89,7 @@ conn.commit()
 # Close the connection
 cursor.close()
 conn.close()"""
-
+"""
 import os
 import logging
 from flask import Flask, request
@@ -141,3 +146,4 @@ if __name__ == '__main__':
     asyncio.run(set_webhook())
 
     # Gunicorn will handle serving the Flask app, no need for app.run() here
+"""
