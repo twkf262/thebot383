@@ -1,53 +1,56 @@
 import os
-import threading
 import asyncio
-from flask import Flask, request
+from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-WEBHOOK_URL = os.getenv('WEBSERVICE_URL') + '/webhook'   # <-- change this
+# --- Environment variables (store these on Render) ---
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")                 # your bot token
+RENDER_URL = os.getenv("WEBSERVICE_URL")       # e.g. https://your-app.onrender.com
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_URL = f"{RENDER_URL}{WEBHOOK_PATH}"
 
-app = Flask(__name__)
+# --- Create FastAPI app ---
+app = FastAPI()
 
-# Build PTB application
-bot_app = Application.builder().token(TOKEN).build()
+# --- Create Telegram Bot Application ---
+application = Application.builder().token(TOKEN).build()
 
 
-# --- Telegram Handlers ---
+# --- Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hello, World!")
+    await update.message.reply_text("Hello, World from FastAPI!")
 
 
-bot_app.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("start", start))
 
 
-# --- Flask webhook route ---
-@app.post("/webhook")
-def webhook():
-    data = request.get_json()
-    update = Update.de_json(data, bot_app.bot)
-    bot_app.update_queue.put_nowait(update)
-    return "OK", 200
+# --- Webhook endpoint ---
+@app.post(WEBHOOK_PATH)
+async def telegram_webhook(req: Request):
+    data = await req.json()
+    update = Update.de_json(data, application.bot)
+    asyncio.create_task(application.process_update(update))
+    return {"ok": True}
 
 
-# --- PTB worker thread ---
-def run_telegram():
-    asyncio.run(bot_app.start())
+# --- Initialize bot and set webhook ---
+async def init_bot():
+    await application.initialize()
+    await application.start()
+    await application.bot.set_webhook(WEBHOOK_URL)
+    print("Webhook set to:", WEBHOOK_URL)
 
 
-# --- Main entry ---
+# --- Entry point ---
 if __name__ == "__main__":
-    # Register webhook ONCE before running Flask
-    asyncio.run(bot_app.bot.set_webhook(WEBHOOK_URL))
+    # Initialize bot before starting FastAPI
+    asyncio.get_event_loop().run_until_complete(init_bot())
 
-    # Start Telegram polling worker in background thread
-    thread = threading.Thread(target=run_telegram, daemon=True)
-    thread.start()
-
-    # Start the Flask server
-    app.run(host="0.0.0.0", port=8443)
-
+    # Run FastAPI via Uvicorn (Render will use $PORT)
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
 
 
 """from flask import Flask, request
