@@ -4,6 +4,41 @@ from fastapi.responses import JSONResponse
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
+from telegram.ext import ConversationHandler, MessageHandler, filters
+
+# Conversation states
+ASK_NAME, ASK_AGE = range(2)
+
+async def chat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Hello! What's your name?")
+    return ASK_NAME
+
+async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["name"] = update.message.text
+    await update.message.reply_text(f"Nice to meet you, {update.message.text}! How old are you?")
+    return ASK_AGE
+
+async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    name = context.user_data.get("name")
+    age = update.message.text
+    await update.message.reply_text(f"Great! So your name is {name} and you're {age} years old. 😊")
+    return ConversationHandler.END
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Conversation cancelled.")
+    return ConversationHandler.END
+
+conv_handler = ConversationHandler(
+    entry_points=[CommandHandler("chat", chat_start)],
+    states={
+        ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
+        ASK_AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_age)],
+    },
+    fallbacks=[CommandHandler("cancel", cancel)],
+)
+
+telegram_app.add_handler(conv_handler)
+
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBSERVICE_URL")
 
