@@ -106,16 +106,19 @@ application = Application.builder().token(TOKEN).build()
 
 # Command handler for /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("start")
     await update.message.reply_text("Hello! I'm your Telegram bot. Send me any text and I'll echo it back!")
 
 # Echo handler function
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("echo")
     # Echo the message back to the user
     await update.message.reply_text(update.message.text)
 
 # Set up Flask route to handle incoming webhook requests
 @app.route('/webhook', methods=['POST'])
 async def webhook():
+    print("webhook")
     json_str = request.get_data().decode('UTF-8')
     update = Update.de_json(json_str, application.bot)
     await application.process_update(update)
@@ -123,6 +126,7 @@ async def webhook():
 
 # Set webhook URL for Telegram
 async def set_webhook():
+    print("set_webhook")
     webhook_url = 'https://thebot383.onrender.com/webhook'  # Change this to your deployed app URL
     await application.bot.set_webhook(webhook_url)
 
@@ -131,6 +135,7 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))  # Echo all text messages
 
 if __name__ == '__main__':
+    print("main")
     # Set webhook when the bot starts
     import asyncio
     asyncio.run(set_webhook())
