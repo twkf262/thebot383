@@ -1,19 +1,20 @@
 import os
+import threading
+import asyncio
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-import asyncio
 
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 WEBHOOK_URL = os.getenv('WEBSERVICE_URL') + '/webhook'   # <-- change this
 
 app = Flask(__name__)
 
-# Create the PTB application
+# Build PTB application
 bot_app = Application.builder().token(TOKEN).build()
 
 
-# --- Handlers ---
+# --- Telegram Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hello, World!")
 
@@ -21,7 +22,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 bot_app.add_handler(CommandHandler("start", start))
 
 
-# --- Webhook endpoint ---
+# --- Flask webhook route ---
 @app.post("/webhook")
 def webhook():
     data = request.get_json()
@@ -30,25 +31,21 @@ def webhook():
     return "OK", 200
 
 
-# --- Startup logic for Flask 3 ---
-@app.before_serving
-async def setup():
-    # Start the PTB update handling loop
-    asyncio.create_task(bot_app.start())
-
-    # Register webhook
-    await bot_app.bot.set_webhook(WEBHOOK_URL)
+# --- PTB worker thread ---
+def run_telegram():
+    asyncio.run(bot_app.start())
 
 
-# --- Shutdown logic ---
-@app.after_serving
-async def shutdown():
-    await bot_app.shutdown()
-    await bot_app.bot.session.close()
-
-
-# --- Entry point ---
+# --- Main entry ---
 if __name__ == "__main__":
+    # Register webhook ONCE before running Flask
+    asyncio.run(bot_app.bot.set_webhook(WEBHOOK_URL))
+
+    # Start Telegram polling worker in background thread
+    thread = threading.Thread(target=run_telegram, daemon=True)
+    thread.start()
+
+    # Start the Flask server
     app.run(host="0.0.0.0", port=8443)
 
 
