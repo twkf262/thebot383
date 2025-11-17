@@ -1,5 +1,1 @@
 python-telegram-bot
-psycopg2
-flask
-gunicorn
-requests
