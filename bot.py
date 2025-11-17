@@ -11,6 +11,8 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import select
 
+from db import init_db, get_user_by_tg_id, upsert_user
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_async_engine(DATABASE_URL, echo=False, future=True)
@@ -63,26 +65,11 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ASK_AGE
 
 async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    name = context.user_data.get("name")
-    age = update.message.text
     tg_id = str(update.effective_user.id)
+    name = context.user_data.get("name")
+    age = int(update.message.text)
 
-    async with async_session() as session:
-        # Query by telegram_id instead of using session.get
-        result = await session.execute(
-            select(User).where(User.telegram_id == tg_id)
-        )
-        user = result.scalar_one_or_none()
-
-        # Insert or update
-        if not user:
-            user = User(telegram_id=tg_id, name=name, age=int(age))
-            session.add(user)
-        else:
-            user.name = name
-            user.age = int(age)
-
-        await session.commit()
+    await upsert_user(tg_id, name, age)
 
     await update.message.reply_text(f"Saved! You are {name}, {age} years old 😊")
     return ConversationHandler.END
@@ -106,24 +93,16 @@ telegram_app.add_handler(conv_handler)
 
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tg_id = str(update.effective_user.id)
-
-    async with async_session() as session:
-        result = await session.execute(
-            select(User).where(User.telegram_id == tg_id)
-        )
-        user = result.scalar_one_or_none()
+    user = await get_user_by_tg_id(tg_id)
 
     if user:
         await update.message.reply_text(
-            f"Your profile:\n\n"
-            f"👤 Name: {user.name}\n"
-            f"🎂 Age: {user.age}\n"
+            f"👤 Profile\n\n"
+            f"Name: {user.name}\n"
+            f"Age: {user.age}"
         )
     else:
-        await update.message.reply_text(
-            "You don't have a saved profile yet.\n"
-            "Start with /chat to create one 😊"
-        )
+        await update.message.reply_text("No profile found. Run /chat to create one.")
 
 telegram_app.add_handler(CommandHandler("profile", profile))
 
@@ -131,30 +110,15 @@ telegram_app.add_handler(CommandHandler("profile", profile))
 
 @app.on_event("startup")
 async def on_startup():
-    # Create tables if missing
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print("DB initialized!")
-    
-    # Must initialize and start application for webhook usage
+    await init_db()                              # async & safe
     await telegram_app.initialize()
     await telegram_app.start()
-
-    # Register webhook
     await telegram_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
-    print("Webhook registered!")
-
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = " ".join(context.args) if context.args else "(no text)"
-    await update.message.reply_text(f"Echo: {text}")
-
-telegram_app.add_handler(CommandHandler("echo", echo))
 
 @app.on_event("shutdown")
 async def on_shutdown():
     await telegram_app.stop()
     await telegram_app.shutdown()
-
 
 # ----- Webhook Route ----- #
 
