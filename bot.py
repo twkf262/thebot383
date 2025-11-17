@@ -67,10 +67,14 @@ async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
     age = update.message.text
     tg_id = str(update.effective_user.id)
 
-    # Save to DB
     async with async_session() as session:
-        user = await session.get(User, {"telegram_id": tg_id})
+        # Query by telegram_id instead of using session.get
+        result = await session.execute(
+            select(User).where(User.telegram_id == tg_id)
+        )
+        user = result.scalar_one_or_none()
 
+        # Insert or update
         if not user:
             user = User(telegram_id=tg_id, name=name, age=int(age))
             session.add(user)
