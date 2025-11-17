@@ -7,14 +7,14 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBSERVICE_URL")
 
-# Setup FastAPI
+# FastAPI app
 app = FastAPI()
 
-# Setup Telegram Application
+# Telegram bot application
 telegram_app = Application.builder().token(BOT_TOKEN).build()
 
 
-# ---- Telegram Handler ---- #
+# ----- Telegram Command Handler ----- #
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hello world! 🎉")
 
@@ -22,18 +22,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 telegram_app.add_handler(CommandHandler("start", start))
 
 
-# ---- FastAPI Routes ---- #
+# ----- FastAPI Lifecycle Events ----- #
 
 @app.on_event("startup")
-async def startup():
-    """Set webhook once app starts"""
-    await telegram_app.bot.set_webhook(url=f"{WEBHOOK_URL}/webhook")
-    print("Webhook set!")
+async def on_startup():
+    # Must initialize and start application for webhook usage
+    await telegram_app.initialize()
+    await telegram_app.start()
 
+    # Register webhook
+    await telegram_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
+    print("Webhook registered!")
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    await telegram_app.stop()
+    await telegram_app.shutdown()
+
+
+# ----- Webhook Route ----- #
 
 @app.post("/webhook")
-async def webhook(request: Request):
-    """Main webhook receiver"""
+async def process_webhook(request: Request):
     data = await request.json()
     update = Update.de_json(data, telegram_app.bot)
     await telegram_app.process_update(update)
@@ -42,8 +53,7 @@ async def webhook(request: Request):
 
 @app.get("/")
 async def root():
-    return {"message": "Telegram bot is running!"}
-
+    return {"message": "Bot running"}
 
 """
 import os
