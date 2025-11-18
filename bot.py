@@ -148,7 +148,9 @@ async def ask_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.location:
         await update.message.reply_text("Please tap the *Share Location* button.", parse_mode="Markdown")
-        return ASK_LOCATIOE    lat = update.message.location.latitude
+        return ASK_LOCATION
+        
+    lat = update.message.location.latitude
     lon = update.message.location.longitude
 
     # Save user data to DB (async SQLAlchemy)
