@@ -18,7 +18,7 @@ from telegram.ext import (
 )
 
 # SQLAlchemy imports assumed from previous example
-from db import async_session_maker, User  # your existing db model + session
+from db import async_sessionmaker, User  # your existing db model + session
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
