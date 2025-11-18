@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, UniqueConstraint
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import select
@@ -26,10 +26,16 @@ engine = create_async_engine(DATABASE_URL, echo=False, future=True)
 Base = declarative_base()
 async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
+
+from sqlalchemy import Column, Integer, String, Float, UniqueConstraint
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+
 class User(Base):
     __tablename__ = "users"
-    id = Column(Integer, primary_key=True)
-    telegram_id = Column(String, unique=True)
+    id = Column(Integer, primary_key=True, index=True)
+    telegram_id = Column(Integer, unique=True, index=True, nullable=False)
     name = Column(String)
     age = Column(Integer)
     latitude = Column (Float)
@@ -41,6 +47,9 @@ class User(Base):
     lastReportedSession = Column(Integer)
 # persistent score based on the aggregate score of previous submissions
     score = Column(Float)
+
+    __table_args__ = (UniqueConstraint('telegram_id', name='_telegram_user_uc'),)
+
 
 # a single report from a user
 class reportedLocation(Base):
@@ -102,6 +111,46 @@ app = FastAPI()
 # Telegram bot application
 telegram_app = Application.builder().token(BOT_TOKEN).build()
 
+
+async def upsert_user(
+    session: AsyncSession,
+    telegram_id: int,
+    name: str | None = None,
+    age: int | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+):
+    result = await session.execute(
+        select(User).where(User.telegram_id == telegram_id)
+    )
+    user = result.scalar_one_or_none()
+
+    if user:
+        # Update existing
+        if name is not None:
+            user.name = name
+        if age is not None:
+            user.age = age
+        if latitude is not None:
+            user.latitude = latitude
+        if longitude is not None:
+            user.longitude = longitude
+    else:
+        # Insert new
+        user = User(
+            telegram_id=telegram_id,
+            name=name,
+            age=age,
+            latitude=latitude,
+            longitude=longitude,
+        )
+        session.add(user)
+
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
 # ----- Telegram Start Command Handler ----- #
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -120,6 +169,90 @@ telegram_app.add_handler(CommandHandler("echo", echo))
 # ----- Telegram Conversation Handler ----- #
 
 # Conversation states
+ASK_NAME, ASK_AGE, ASK_LOCATION = range(3)
+
+
+async def chat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Hello! What is your name?")
+    return ASK_NAME
+
+
+
+async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    name = update.message.text
+    user_id = update.effective_user.id
+
+    async with async_session() as session:
+        await upsert_user(session, telegram_id=user_id, name=name)
+
+    await update.message.reply_text("Got it! Now please enter your age.")
+    return ASK_AGE
+
+
+async def ask_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["age"] = int(update.message.text)
+
+    # Create keyboard with location sharing button
+    location_button = KeyboardButton("Share Location 📍", request_location=True)
+    keyboard = ReplyKeyboardMarkup([[location_button]], resize_keyboard=True, one_time_keyboard=True)
+
+    await update.message.reply_text(
+        "Please share your location:",
+        reply_markup=keyboard
+    )
+
+    return ASK_LOCATION
+
+
+async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Ensure user actually shared location using Telegram UI
+    if not update.message or not update.message.location:
+        await update.message.reply_text("Please tap the *Share Location* button.", parse_mode="Markdown")
+        return ASK_LOCATION
+
+    lat = update.message.location.latitude
+    lon = update.message.location.longitude
+
+    user_id = update.effective_user.id
+
+    async with async_session() as session:
+        await upsert_user(
+            session,
+            telegram_user_id=user_id,
+            latitude=loc.latitude,
+            longitude=loc.longitude
+        )
+        
+    await update.message.reply_text(
+        f"Thanks, your information has been saved.\n\n"
+        f"Name: {context.user_data['name']}\n"
+        f"Age: {context.user_data['age']}\n"
+        f"Location: ({lat}, {lon})"
+    )
+
+    return ConversationHandler.END
+
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Conversation cancelled.")
+    return ConversationHandler.END
+
+
+def get_conversation_handler():
+    return ConversationHandler(
+        entry_points=[CommandHandler("chat", chat_start)],
+        states={
+            ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
+            ASK_AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_age)],
+            ASK_LOCATION: [
+                MessageHandler(filters.LOCATION, ask_location),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location),
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
+
 ASK_NAME, ASK_AGE, ASK_LOCATION = range(3)
 
 async def chat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
