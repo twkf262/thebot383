@@ -5,6 +5,7 @@ from sqlalchemy import (
     select,
     Column,
     Integer,
+    BigInteger,
     String,
     Float,
     DateTime,
@@ -50,7 +51,7 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
-    telegram_id = Column(Integer, unique=True, index=True, nullable=False)
+    telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
     name = Column(String)
     age = Column(Integer)
     latitude = Column (Float)
