@@ -166,6 +166,7 @@ async def upsert_user(
     latitude: float | None = None,
     longitude: float | None = None,
 ):
+    print(telegram_id)
     result = await session.execute(
         select(User).where(User.telegram_id == telegram_id)
     )
