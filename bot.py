@@ -1,39 +1,68 @@
 import os
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-
-from sqlalchemy import Column, Integer, String, Float, DateTime, UniqueConstraint
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import declarative_base, sessionmaker
-from sqlalchemy import select
-from sqlalchemy.sql import func
 from datetime import datetime
 
-from db import init_db, get_user_by_tg_id, upsert_user
+from fastapi import (
+    FastAPI,
+    Request
+)
+from fastapi.responses import JSONResponse
 
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
-from telegram.ext import (
-    Application, CommandHandler, MessageHandler, ConversationHandler,
-    ContextTypes, filters
+from sqlalchemy import (
+    select,
+    Column,
+    Integer,
+    String,
+    Float,
+    DateTime,
+    UniqueConstraint
+)
+from sqlalchemy.ext.asyncio import (
+    create_async_engine,
+    AsyncSession
+)
+from sqlalchemy.orm import (
+    declarative_base,
+    sessionmaker
 )
 
-# SQLAlchemy imports assumed from previous example
-from db import async_sessionmaker, User  # your existing db model + session
+from telegram import (
+    Update,
+    KeyboardButton,
+    ReplyKeyboardMarkup
+)
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ConversationHandler,
+    ContextTypes,
+    filters
+)
 
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+WEBHOOK_URL = os.getenv("WEBSERVICE_URL")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_async_engine(DATABASE_URL, echo=False, future=True)
-Base = declarative_base()
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_size=5,           # good for Render
+    max_overflow=10        # prevent starvation
+)
+
 async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
-from sqlalchemy import Column, Integer, String, Float, UniqueConstraint
-from sqlalchemy.orm import declarative_base
+async def init_db():
+    """Called at startup — safe and non-blocking."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-Base = declarative_base()
 
-class User(Base):
-    __tablename__ = "users"
+# ------------------ CRUD FUNCTIONS (async + safe) ------------------ #
+
+async def get_user_by_tg_id(tg_id: str) -> User | None:
+    async with async_session() as session:
     id = Column(Integer, primary_key=True, index=True)
     telegram_id = Column(Integer, unique=True, index=True, nullable=False)
     name = Column(String)
@@ -101,9 +130,6 @@ class historicLocation:
 # Known historical locations with no knowledge of specific events
 # will typically be given a numberOfPrevious of 1.
     numberOfPrevious = Column (Integer)
-
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-WEBHOOK_URL = os.getenv("WEBSERVICE_URL")
 
 # FastAPI app
 app = FastAPI()
@@ -203,7 +229,6 @@ async def ask_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return ASK_LOCATION
 
-
 async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Ensure user actually shared location using Telegram UI
     if not update.message or not update.message.location:
@@ -251,7 +276,6 @@ def get_conversation_handler():
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
-
 
 ASK_NAME, ASK_AGE, ASK_LOCATION = range(3)
 
