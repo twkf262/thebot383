@@ -37,7 +37,7 @@ class User(Base):
     score = Column(Float)
 
 # a single report from a user
-class reportedLocation(Base)
+class reportedLocation(Base):
     __tablename__ = "reported_locations"
     id = Column(Integer, primary_key=True)
 # user foreign key
@@ -59,14 +59,14 @@ class reportedLocation(Base)
 
 # suspected location calculated from a set of reports
 # may not be needed if we're just giving users 'heat maps'
-class suspectedLocation(Base)
+class suspectedLocation(Base):
     __tablename__ = "suspected_locations"
     confidence = Column(Float)
     latitude = Column (Float)
     longitude = Column (Float)
 
 # the session (interval of time) through which a set of reports is considered 'live'
-class reportSession(Base)
+class reportSession(Base):
     __tablename__ = "report_sessions"
     id = Column(Integer, primary_key=True)
     startTime = Column(DateTime(timezone=False))
@@ -78,7 +78,7 @@ class reportSession(Base)
 # (e.g. be there, phone the line, social media, photos or videos etc).
 # Data entry via e.g. a text file (extract from Smash somehow)?
 # In later versions maybe we could start integrating user reports.
-class historicLocation
+class historicLocation:
     __tablename__ = "historic_locations"
     id = Column(Integer, primary_key=True)
     latitude = Column (Float)
