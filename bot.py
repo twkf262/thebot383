@@ -43,7 +43,7 @@ BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBSERVICE_URL")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# ------------------ Database Class / Table Definitions ------------------ #
+# ------------------ database class / table definitions ------------------ #
 
 Base = declarative_base()
 
@@ -90,6 +90,7 @@ class reportedLocation(Base):
 # may not be needed if we're just giving users 'heat maps'
 class suspectedLocation(Base):
     __tablename__ = "suspected_locations"
+    id = Column(Integer, primary_key=True)
     confidence = Column(Float)
     latitude = Column (Float)
     longitude = Column (Float)
@@ -195,20 +196,14 @@ async def upsert_user(
     await session.refresh(user)
     return user
 
-# FastAPI app
-app = FastAPI()
-
-# Telegram bot application
-telegram_app = Application.builder().token(BOT_TOKEN).build()
-
-# ----- Telegram Start Command Handler ----- #
+# ------------------ bot command handlers ... /start command ------------------ #
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hello world! 🎉")
 
 telegram_app.add_handler(CommandHandler("start", start))
 
-# ----- Echo Command ----- #
+# ------------------ bot command handlers ... /echo command ------------------ #
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = " ".join(context.args) if context.args else "(no text)"
@@ -216,17 +211,14 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 telegram_app.add_handler(CommandHandler("echo", echo))
 
-# ----- Telegram Conversation Handler ----- #
+# ------------------ bot command handlers ... /chat conversation ------------------ #
 
 # Conversation states
 ASK_NAME, ASK_AGE, ASK_LOCATION = range(3)
 
-
 async def chat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hello! What is your name?")
     return ASK_NAME
-
-
 
 async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.message.text
@@ -281,7 +273,6 @@ async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return ConversationHandler.END
 
-
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Conversation cancelled.")
     return ConversationHandler.END
@@ -301,33 +292,8 @@ def get_conversation_handler():
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
-ASK_NAME, ASK_AGE, ASK_LOCATION = range(3)
-
-async def chat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hello! What is your name?")
-    return ASK_NAME
-
-async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["name"] = update.message.text
-    await update.message.reply_text("Thanks! How old are you?")
-    return ASK_AGE
-
-async def ask_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["age"] = int(update.message.text)
-
-    # Build a keyboard with a location request button
-    location_button = KeyboardButton("Share Location 📍", request_location=True)
-    keyboard = ReplyKeyboardMarkup([[location_button]], resize_keyboard=True, one_time_keyboard=True)
-
-    await update.message.reply_text(
-        "Please share your location:",
-        reply_markup=keyboard
-    )
-
-    return ASK_LOCATION
-
 async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message.location:
+    if not update.message or not update.message.location:
         await update.message.reply_text("Please tap the *Share Location* button.", parse_mode="Markdown")
         return ASK_LOCATION
         
@@ -376,7 +342,7 @@ def get_conversation_handler():
 
 telegram_app.add_handler(get_conversation_handler())
 
-# ----- Profile Command ----- #
+# ------------------ bot command handlers ... /profile command ------------------ #
 
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tg_id = str(update.effective_user.id)
@@ -393,7 +359,7 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 telegram_app.add_handler(CommandHandler("profile", profile))
 
-# ----- Report Input Handler ----- #
+# ------------------ bot command handlers ... /report conversation ------------------ #
 
 ASK_LOCATION = 0
 
@@ -426,7 +392,10 @@ report_handler = ConversationHandler(
 
 telegram_app.add_handler(report_handler)
 
-# ----- FastAPI Lifecycle Events ----- #
+# ------------------ FastAPI setup and lifecycle events ------------------ #
+
+# FastAPI app
+app = FastAPI()
 
 @app.on_event("startup")
 async def on_startup():
@@ -440,7 +409,10 @@ async def on_shutdown():
     await telegram_app.stop()
     await telegram_app.shutdown()
 
-# ----- Webhook Route ----- #
+# ------------------ webhook ------------------ #
+
+# Telegram bot application
+telegram_app = Application.builder().token(BOT_TOKEN).build()
 
 @app.post("/webhook")
 async def process_webhook(request: Request):
@@ -448,7 +420,6 @@ async def process_webhook(request: Request):
     update = Update.de_json(data, telegram_app.bot)
     await telegram_app.process_update(update)
     return JSONResponse({"status": "ok"})
-
 
 @app.get("/")
 async def root():
