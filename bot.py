@@ -1,12 +1,6 @@
 import os
 from datetime import datetime
 
-from fastapi import (
-    FastAPI,
-    Request
-)
-from fastapi.responses import JSONResponse
-
 from sqlalchemy import (
     select,
     Column,
@@ -24,6 +18,12 @@ from sqlalchemy.orm import (
     declarative_base,
     sessionmaker
 )
+
+from fastapi import (
+    FastAPI,
+    Request
+)
+from fastapi.responses import JSONResponse
 
 from telegram import (
     Update,
@@ -133,7 +133,7 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-# ------------------ CRUD FUNCTIONS (async + safe) ------------------ #
+# ------------------ CRUD functions (async + safe) ------------------ #
 
 async def get_user_by_tg_id(tg_id: str) -> User | None:
     async with async_session() as session:
@@ -196,6 +196,39 @@ async def upsert_user(
     await session.refresh(user)
     return user
 
+# ------------------ FastAPI setup and lifecycle events ------------------ #
+
+# FastAPI app
+app = FastAPI()
+
+@app.on_event("startup")
+async def on_startup():
+    await init_db()                              # async & safe
+    await telegram_app.initialize()
+    await telegram_app.start()
+    await telegram_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    await telegram_app.stop()
+    await telegram_app.shutdown()
+
+# ------------------ webhook ------------------ #
+
+# Telegram bot application
+telegram_app = Application.builder().token(BOT_TOKEN).build()
+
+@app.post("/webhook")
+async def process_webhook(request: Request):
+    data = await request.json()
+    update = Update.de_json(data, telegram_app.bot)
+    await telegram_app.process_update(update)
+    return JSONResponse({"status": "ok"})
+
+@app.get("/")
+async def root():
+    return {"message": "Bot running"}
+    
 # ------------------ bot command handlers ... /start command ------------------ #
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -245,6 +278,7 @@ async def ask_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return ASK_LOCATION
 
+"""
 async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Ensure user actually shared location using Telegram UI
     if not update.message or not update.message.location:
@@ -272,25 +306,7 @@ async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     return ConversationHandler.END
-
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Conversation cancelled.")
-    return ConversationHandler.END
-
-
-def get_conversation_handler():
-    return ConversationHandler(
-        entry_points=[CommandHandler("chat", chat_start)],
-        states={
-            ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
-            ASK_AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_age)],
-            ASK_LOCATION: [
-                MessageHandler(filters.LOCATION, ask_location),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location),
-            ],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-    )
+"""
 
 async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.location:
@@ -312,6 +328,10 @@ async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         session.add(user)
         await session.commit()
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Conversation cancelled.")
+    return ConversationHandler.END
 
     await update.message.reply_text(
         f"Thanks! Your data has been saved.\n\n"
@@ -391,39 +411,6 @@ report_handler = ConversationHandler(
 )
 
 telegram_app.add_handler(report_handler)
-
-# ------------------ FastAPI setup and lifecycle events ------------------ #
-
-# FastAPI app
-app = FastAPI()
-
-@app.on_event("startup")
-async def on_startup():
-    await init_db()                              # async & safe
-    await telegram_app.initialize()
-    await telegram_app.start()
-    await telegram_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    await telegram_app.stop()
-    await telegram_app.shutdown()
-
-# ------------------ webhook ------------------ #
-
-# Telegram bot application
-telegram_app = Application.builder().token(BOT_TOKEN).build()
-
-@app.post("/webhook")
-async def process_webhook(request: Request):
-    data = await request.json()
-    update = Update.de_json(data, telegram_app.bot)
-    await telegram_app.process_update(update)
-    return JSONResponse({"status": "ok"})
-
-@app.get("/")
-async def root():
-    return {"message": "Bot running"}
 
 """
 import os
