@@ -49,7 +49,7 @@ engine = create_async_engine(
     pool_size=5,           # good for Render
     max_overflow=10        # prevent starvation
 )
-
+# engine = create_async_engine(DATABASE_URL, echo=False, future=True)
 async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
@@ -63,6 +63,30 @@ async def init_db():
 
 async def get_user_by_tg_id(tg_id: str) -> User | None:
     async with async_session() as session:
+        result = await session.execute(
+            select(User).where(User.telegram_id == tg_id)
+        )
+        return result.scalar_one_or_none()
+
+
+async def upsert_user(tg_id: str, name: str, age: int):
+    async with async_session() as session:
+        user = await get_user_by_tg_id(tg_id)
+
+        if not user:
+            user = User(telegram_id=tg_id, name=name, age=age)
+            session.add(user)
+        else:
+            user.name = name
+            user.age = age
+
+        await session.commit()
+        return user
+
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     telegram_id = Column(Integer, unique=True, index=True, nullable=False)
     name = Column(String)
@@ -78,7 +102,6 @@ async def get_user_by_tg_id(tg_id: str) -> User | None:
     score = Column(Float)
 
     __table_args__ = (UniqueConstraint('telegram_id', name='_telegram_user_uc'),)
-
 
 # a single report from a user
 class reportedLocation(Base):
