@@ -43,45 +43,7 @@ BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBSERVICE_URL")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=False,
-    pool_size=5,           # good for Render
-    max_overflow=10        # prevent starvation
-)
-# engine = create_async_engine(DATABASE_URL, echo=False, future=True)
-async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
-
-
-async def init_db():
-    """Called at startup — safe and non-blocking."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-
-# ------------------ CRUD FUNCTIONS (async + safe) ------------------ #
-
-async def get_user_by_tg_id(tg_id: str) -> User | None:
-    async with async_session() as session:
-        result = await session.execute(
-            select(User).where(User.telegram_id == tg_id)
-        )
-        return result.scalar_one_or_none()
-
-
-async def upsert_user(tg_id: str, name: str, age: int):
-    async with async_session() as session:
-        user = await get_user_by_tg_id(tg_id)
-
-        if not user:
-            user = User(telegram_id=tg_id, name=name, age=age)
-            session.add(user)
-        else:
-            user.name = name
-            user.age = age
-
-        await session.commit()
-        return user
+# ------------------ Database Class / Table Definitions ------------------ #
 
 Base = declarative_base()
 
@@ -154,12 +116,46 @@ class historicLocation:
 # will typically be given a numberOfPrevious of 1.
     numberOfPrevious = Column (Integer)
 
-# FastAPI app
-app = FastAPI()
+# ------------------ database setup ------------------ #
 
-# Telegram bot application
-telegram_app = Application.builder().token(BOT_TOKEN).build()
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_size=5,           # good for Render
+    max_overflow=10        # prevent starvation
+)
+# engine = create_async_engine(DATABASE_URL, echo=False, future=True)
+async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
+async def init_db():
+    """Called at startup — safe and non-blocking."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+# ------------------ CRUD FUNCTIONS (async + safe) ------------------ #
+
+async def get_user_by_tg_id(tg_id: str) -> User | None:
+    async with async_session() as session:
+        result = await session.execute(
+            select(User).where(User.telegram_id == tg_id)
+        )
+        return result.scalar_one_or_none()
+
+"""
+async def upsert_user(tg_id: str, name: str, age: int):
+    async with async_session() as session:
+        user = await get_user_by_tg_id(tg_id)
+
+        if not user:
+            user = User(telegram_id=tg_id, name=name, age=age)
+            session.add(user)
+        else:
+            user.name = name
+            user.age = age
+
+        await session.commit()
+        return user
+"""
 
 async def upsert_user(
     session: AsyncSession,
@@ -199,6 +195,11 @@ async def upsert_user(
     await session.refresh(user)
     return user
 
+# FastAPI app
+app = FastAPI()
+
+# Telegram bot application
+telegram_app = Application.builder().token(BOT_TOKEN).build()
 
 # ----- Telegram Start Command Handler ----- #
 
