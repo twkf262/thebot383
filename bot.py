@@ -1,20 +1,24 @@
 import os
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
 
-from telegram.ext import ConversationHandler, MessageHandler, filters
-
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Float, DateTime
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import select
-from sqlalchemy import DateTime
 from sqlalchemy.sql import func
 from datetime import datetime
 
 from db import init_db, get_user_by_tg_id, upsert_user
+
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import (
+    Application, CommandHandler, MessageHandler, ConversationHandler,
+    ContextTypes, filters
+)
+
+# SQLAlchemy imports assumed from previous example
+from db import async_session_maker, User  # your existing db model + session
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -28,6 +32,8 @@ class User(Base):
     telegram_id = Column(String, unique=True)
     name = Column(String)
     age = Column(Integer)
+    latitude = Column (Float)
+    longitude = Column (Float)
 # for tracking whether they have used up all their reporting opportunities for a session
     lastSubmittedTime = Column(DateTime(timezone=False))
 # ditto (session foreign key)
@@ -114,41 +120,78 @@ telegram_app.add_handler(CommandHandler("echo", echo))
 # ----- Telegram Conversation Handler ----- #
 
 # Conversation states
-ASK_NAME, ASK_AGE = range(2)
+ASK_NAME, ASK_AGE, ASK_LOCATION = range(3)
 
 async def chat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hello! What's your name?")
+    await update.message.reply_text("Hello! What is your name?")
     return ASK_NAME
 
-async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["name"] = update.message.text
-    await update.message.reply_text(f"Nice to meet you, {update.message.text}! How old are you?")
+    await update.message.reply_text("Thanks! How old are you?")
     return ASK_AGE
 
-async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    tg_id = str(update.effective_user.id)
-    name = context.user_data.get("name")
-    age = int(update.message.text)
+async def ask_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["age"] = int(update.message.text)
 
-    await upsert_user(tg_id, name, age)
+    # Build a keyboard with a location request button
+    location_button = KeyboardButton("Share Location 📍", request_location=True)
+    keyboard = ReplyKeyboardMarkup([[location_button]], resize_keyboard=True, one_time_keyboard=True)
 
-    await update.message.reply_text(f"Saved! You are {name}, {age} years old 😊")
+    await update.message.reply_text(
+        "Please share your location:",
+        reply_markup=keyboard
+    )
+
+    return ASK_LOCATION
+
+async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message.location:
+        await update.message.reply_text("Please tap the *Share Location* button.", parse_mode="Markdown")
+        return ASK_LOCATIOE    lat = update.message.location.latitude
+    lon = update.message.location.longitude
+
+    # Save user data to DB (async SQLAlchemy)
+    async with async_session_maker() as session:
+        # You may already have a user model row existing — update if so
+        user = User(
+            telegram_id=update.effective_user.id,
+            name=context.user_data["name"],
+            age=context.user_data["age"],
+            latitude=lat,
+            longitude=lon,
+        )
+        session.add(user)
+        await session.commit()
+
+    await update.message.reply_text(
+        f"Thanks! Your data has been saved.\n\n"
+        f"Name: {context.user_data['name']}\n"
+        f"Age: {context.user_data['age']}\n"
+        f"Location: ({lat}, {lon})"
+    )
+
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Conversation cancelled.")
     return ConversationHandler.END
 
-conv_handler = ConversationHandler(
-    entry_points=[CommandHandler("chat", chat_start)],
-    states={
-        ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
-        ASK_AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_age)],
-    },
-    fallbacks=[CommandHandler("cancel", cancel)],
-)
+def get_conversation_handler():
+    return ConversationHandler(
+        entry_points=[CommandHandler("chat", chat_start)],
+        states={
+            ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
+            ASK_AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_age)],
+            ASK_LOCATION: [
+                MessageHandler(filters.LOCATION, ask_location),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location),  # fallback to remind user
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
 
-telegram_app.add_handler(conv_handler)
+telegram_app.add_handler(get_conversation_handler())
 
 # ----- Profile Command ----- #
 
