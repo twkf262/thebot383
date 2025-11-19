@@ -167,6 +167,10 @@ async def upsert_user(
     latitude: float | None = None,
     longitude: float | None = None,
 ):
+    print("telegram_id: " + telegram_id)
+    print("name: " + name)
+    print("latitude: " + latitude)
+    print("longitude: " + longitude)
     result = await session.execute(
         select(User).where(User.telegram_id == telegram_id)
     )
@@ -381,7 +385,7 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 telegram_app.add_handler(CommandHandler("profile", profile))
 
 # ------------------ bot command handlers ... /report conversation ------------------ #
-
+"""
 async def report_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Please send me the location as an attachment or by forwarding. Only send it using the built-in location (maps) tool. Don't send me typed coordinates or What3Words.")
 
@@ -396,7 +400,7 @@ async def report_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 #    await upsert_user(tg_id, tg_dt, latitude, longitude, )
 #    await update.message.reply_text(f"Rave at coordinates: {latitude} N, {longitude} W reported.")
-    
+"""
 """
     # Save user data to DB (async SQLAlchemy)
     async with async_session_maker() as session:
@@ -413,7 +417,7 @@ async def report_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(f"Rave at coordinates: {latitude} N, {longitude} W reported.")
     return ConversationHandler.END"""
-
+"""
 async def report_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Report cancelled.")
     return ConversationHandler.END
@@ -425,3 +429,4 @@ report_handler = ConversationHandler(
 )
 
 telegram_app.add_handler(report_handler)
+"""
