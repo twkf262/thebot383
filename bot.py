@@ -382,33 +382,46 @@ telegram_app.add_handler(CommandHandler("profile", profile))
 
 # ------------------ bot command handlers ... /report conversation ------------------ #
 
-ASK_LOCATION = 0
-
 async def report_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Please send me the location as an attachment or by forwarding. Only send it using the built-in location (maps) tool. Don't send me typed coordinates or What3Words.")
-    return ASK_LOCATION
 
-async def get_location(uprate: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.message.location:
+        await update.message.reply_text("Please tap the *Share Location* button or forward me a location.")
+        return
+
     tg_id = str(update.effective_user.id)
     tg_dt = datetime.utcfromtimestamp(update.message.date.timestamp())
-    name = context.user_data.get("name")
-    age = int(update.message.text)
+    lat = update.message.location.latitude
+    lon = update.message.location.longitude
 
-    await upsert_user(tg_id, tg_dt, latitude, longitude, )
-
+#    await upsert_user(tg_id, tg_dt, latitude, longitude, )
+#    await update.message.reply_text(f"Rave at coordinates: {latitude} N, {longitude} W reported.")
+    
+"""
+    # Save user data to DB (async SQLAlchemy)
+    async with async_session_maker() as session:
+        # You may already have a user model row existing — update if so
+        user = User(
+            telegram_id=update.effective_user.id,
+            name=context.user_data["name"],
+            age=context.user_data["age"],
+            latitude=lat,
+            longitude=lon,
+        )
+        session.add(user)
+        await session.commit()
+    
     await update.message.reply_text(f"Rave at coordinates: {latitude} N, {longitude} W reported.")
-    return ConversationHandler.END
+    return ConversationHandler.END"""
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def report_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Report cancelled.")
     return ConversationHandler.END
 
 report_handler = ConversationHandler(
     entry_points=[CommandHandler("report", report_start)],
-    states={
-        ASK_LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_location)],
-    },
-    fallbacks=[CommandHandler("cancel", cancel)],
+    states=[MessageHandler(filters.TEXT & ~filters.COMMAND, report_get_location)],
+    fallbacks=[CommandHandler("cancel", report_cancel)],
 )
 
 telegram_app.add_handler(report_handler)
