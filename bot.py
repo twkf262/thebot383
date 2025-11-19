@@ -13,7 +13,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import (
     create_async_engine,
-    AsyncSession
+    AsyncSession,
+    async_sessionmaker
 )
 from sqlalchemy.orm import (
     declarative_base,
@@ -127,7 +128,11 @@ engine = create_async_engine(
     max_overflow=10        # prevent starvation
 )
 # engine = create_async_engine(DATABASE_URL, echo=False, future=True)
-async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+async_session_maker = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
 async def init_db():
     """Called at startup — safe and non-blocking."""
@@ -322,7 +327,7 @@ async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lon = update.message.location.longitude
 
     # Save user data to DB (async SQLAlchemy)
-    async with async_sessionmaker() as session:
+    async with async_session_maker() as session:
         # You may already have a user model row existing — update if so
         user = User(
             telegram_id=update.effective_user.id,
