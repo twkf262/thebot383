@@ -322,7 +322,7 @@ async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lon = update.message.location.longitude
 
     # Save user data to DB (async SQLAlchemy)
-    async with async_session_maker() as session:
+    async with async_sessionmaker() as session:
         # You may already have a user model row existing — update if so
         user = User(
             telegram_id=update.effective_user.id,
