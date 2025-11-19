@@ -420,7 +420,7 @@ async def report_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 report_handler = ConversationHandler(
     entry_points=[CommandHandler("report", report_start)],
-    states=[MessageHandler(filters.TEXT & ~filters.COMMAND, report_get_location)],
+#    states=[MessageHandler(filters.TEXT & ~filters.COMMAND, report_get_location)],
     fallbacks=[CommandHandler("cancel", report_cancel)],
 )
 
